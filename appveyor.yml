@@ -1,0 +1,77 @@
+environment:
+  P: c:\build\libs
+  ACCOUNT:
+    secure: haKHy4KWVnBuCd6I3obXGMa9TjRa8oXFm9P+Pw6f5P0=
+  matrix:
+    - configuration: Debug
+      PBVERSION: 2.6
+
+    - configuration: Debug
+      PBVERSION: 2.5
+
+    - configuration: Release
+      PBVERSION: 2.6
+
+# branches to build
+branches:
+  # whitelist
+  only:
+    - next
+    - master
+
+# Operating system (build VM template)
+os: Windows Server 2012 R2
+
+# scripts that are called at very beginning, before repo cloning
+init:
+  - git config --global core.autocrlf input
+
+
+# clone directory
+clone_folder: c:\build\protobuf-c
+
+build_script:
+  - call "%VS120COMNTOOLS%\..\..\VC\vcvarsall.bat" x86_amd64
+  - mkdir %P%\bin
+  - mkdir %P%\lib
+  - mkdir %P%\include
+  - cd c:\build
+  - if "%PBVERSION%"=="2.6" ( git clone https://github.com/google/protobuf.git ) else ( git clone https://github.com/alex85k/protobuf.git )
+  - git clone https://github.com/alex85k/protobuf-cmake.git
+  - cd protobuf-cmake
+  - cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=%Configuration% -DCMAKE_INSTALL_PREFIX=%P% -DPROTOBUF_ROOT=c:\build\protobuf
+  - nmake install
+  - cd c:\build\protobuf-c\build-cmake
+  - cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=%Configuration% -DCMAKE_INSTALL_PREFIX=%P%
+  - nmake install
+
+test_script:
+  - cd c:\build\protobuf-c\build-cmake
+  - if "%Configuration%"=="Debug" ctest -VV
+
+# scripts to run after build
+after_build:
+  - cd %P%
+  - 7z a c:\build\protobuf-c\protobuf-c-%Configuration%-%PBVERSION%.zip * -tzip
+  - cd c:\build
+
+artifacts:
+  - path: '*.zip'
+
+# Example: deploy via WebDav
+#deploy_script:
+#  - cd c:\build
+#  - curl -T protobuf-c-%Configuration%.zip --user %ACCOUNT% https://webdav.yandex.ru/libs/protobuf-c-%Configuration%.zip
+
+# Example: FTP deploy
+#deploy:
+#  provider: FTP
+#  server:
+#    secure: ef7oiQTTXFGt8NdNiOHm/uRFVrUttzyFbIlnaeHhQvw=
+#  username:
+#    secure: Bw+Se2GTJxA6+GtRkEc//tQSBHOuFIuJHBjFwR9cD+8=
+#  password:
+#    secure: eqwESZqxMXC/j5mOCpaXuw==
+#  folder: /
+#  enable_ssl: true
+#  active_mode: false
