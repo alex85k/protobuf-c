@@ -174,9 +174,9 @@ do_free(ProtobufCAllocator *allocator, void *data)
  * function.
  */
 static ProtobufCAllocator protobuf_c__allocator = {
-	.alloc = &system_alloc,
-	.free = &system_free,
-	.allocator_data = NULL,
+	 &system_alloc,
+	 &system_free,
+	 NULL,
 };
 
 /* === buffer-simple === */
@@ -1988,16 +1988,19 @@ merge_messages(ProtobufCMessage *earlier_msg,
 			void *latter_elem =
 				STRUCT_MEMBER_P(latter_msg, fields[i].offset);
 			const void *def_val = fields[i].default_value;
+			uint8_t *l_data, *e_data;
+			const ProtobufCBinaryData *d_bd;
+			char *e_str, *l_str;
+			const char *d_str;
+
+
 
 			switch (fields[i].type) {
 			case PROTOBUF_C_TYPE_BYTES: {
 				el_size = sizeof(ProtobufCBinaryData);
-				uint8_t *e_data =
-					((ProtobufCBinaryData *) earlier_elem)->data;
-				uint8_t *l_data =
-					((ProtobufCBinaryData *) latter_elem)->data;
-				const ProtobufCBinaryData *d_bd =
-					(ProtobufCBinaryData *) def_val;
+				e_data = ((ProtobufCBinaryData *) earlier_elem)->data;
+				l_data = ((ProtobufCBinaryData *) latter_elem)->data;
+				d_bd = (ProtobufCBinaryData *) def_val;
 
 				need_to_merge =
 					(e_data != NULL &&
@@ -2010,9 +2013,9 @@ merge_messages(ProtobufCMessage *earlier_msg,
 			}
 			case PROTOBUF_C_TYPE_STRING: {
 				el_size = sizeof(char *);
-				char *e_str = *(char **) earlier_elem;
-				char *l_str = *(char **) latter_elem;
-				const char *d_str = def_val;
+				e_str = *(char **) earlier_elem;
+				l_str = *(char **) latter_elem;
+				d_str = def_val;
 
 				need_to_merge = e_str != d_str && l_str == d_str;
 				break;
@@ -2702,6 +2705,7 @@ protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
 	unsigned char required_fields_bitmap_stack[16];
 	unsigned char *required_fields_bitmap = required_fields_bitmap_stack;
 	protobuf_c_boolean required_fields_bitmap_alloced = FALSE;
+	void *a;
 
 	ASSERT_IS_MESSAGE_DESCRIPTOR(desc);
 
@@ -2896,7 +2900,7 @@ protobuf_c_message_unpack(const ProtobufCMessageDescriptor *desc,
                   if (field->label == PROTOBUF_C_LABEL_REPEATED)              \
                     STRUCT_MEMBER (size_t, rv, field->quantifier_offset) = 0; \
                 }
-				void *a = do_alloc(allocator, siz * n);
+				a = do_alloc(allocator, siz * n);
 				if (!a) {
 					CLEAR_REMAINING_N_PTRS();
 					goto error_cleanup;
@@ -3049,6 +3053,7 @@ protobuf_c_message_init(const ProtobufCMessageDescriptor * descriptor,
 protobuf_c_boolean
 protobuf_c_message_check(const ProtobufCMessage *message)
 {
+	unsigned i;
 	if (!message ||
 	    !message->descriptor ||
 	    message->descriptor->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
@@ -3056,7 +3061,6 @@ protobuf_c_message_check(const ProtobufCMessage *message)
 		return FALSE;
 	}
 
-	unsigned i;
 	for (i = 0; i < message->descriptor->n_fields; i++) {
 		const ProtobufCFieldDescriptor *f = message->descriptor->fields + i;
 		ProtobufCType type = f->type;
